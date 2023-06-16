@@ -1,0 +1,51 @@
+<html>
+<head>
+  <title>Sherlock WSI Viewer</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap.native/2.0.27/bootstrap-native-v4.min.js" async></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/openseadragon@latest/build/openseadragon/openseadragon.js"></script> -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/2.4.2/openseadragon.min.js" integrity="sha512-qvQYH6mPuE46uFcWLI8BdGaJpB5taX4lltbSIw5GF4iODh2xIgyz5ii1WpuzPFUknHCps0mi4mFGR44bjdZlZg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="../../sherlockWSI.css">
+  <script src="index.js"></script>
+</head>
+
+<body>
+  
+  <div class="container-fluid">
+    <div id="header">
+      
+      <h1>Sherlock WSI Viewer
+        <sup>
+          [<a href="https://github.com/episphere/sherlockWSI" target="_blank">code</a>] 
+          [<a href="https://github.com/episphere/sherlockWSI/issues/new" target="_blank">issues</a>]
+        </sup>
+      </h1>
+      
+      <div id="imageURLTextboxParent">
+        
+        <span><b>Image Name: </b><select id="imageSelect" onchange="sherlockWSI.selectImage()"></select>
+        
+      </div>
+      
+      <p id="welcomeMsg" onclick="sherlockWSI.loadDefaultImage()">Welcome!</p>
+      
+    </div>
+    <hr>
+    <div id="viewerParent">
+        <div id="viewer">
+          <div id="progressBarContainer">
+            <div id="progressBar"></div>
+          </div>
+          <div id="openseadragon" class="openseadragon"></div>
+        </div>
+        <div id="osdNavigator" style="width:90%; height: 90%"></div>
+    </div>
+    
+  </div>
+  
+  <!-- <svg id="zoomIn" class="w-6 h-6" style="height: 40px; display: inline-block; position: relative; pointer-events: auto;" fill="#000" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M5 8a1 1 0 011-1h1V6a1 1 0 012 0v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V9H6a1 1 0 01-1-1z"></path><path fill-rule="evenodd" d="M2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8zm6-4a4 4 0 100 8 4 4 0 000-8z" clip-rule="evenodd"></path></svg> -->
+</body>
+
+</html>
