@@ -20,6 +20,7 @@ sherlockWSI.default = {
     prefixUrl: "https://episphere.github.io/svs/openseadragon/images/",
     showNavigator: true,
     navigatorId: "osdNavigator",
+    navigatorDisplayRegionColor: "#e7f8ff",
     imageLoaderLimit: 15,
     immediateRender: true,
     timeout: 180*1000,
@@ -236,11 +237,13 @@ sherlockWSI.createTileSource = async (url) => {
   return tileSource
 }
 
-sherlockWSI.loadImage = async (url=document.getElementById("imageURLInput").value) => {
+sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'fileURL': document.getElementById("imageSelect").value }) : {}
+
+sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value) => {
   // Load the image.
-  // if (url !== document.getElementById("imageURLInput").value) {
-  //   document.getElementById("imageURLInput").value = url
-  // }
+  if (url !== document.getElementById("imageSelect").value) {
+    document.getElementById("imageSelect").value = url
+  }
   
   if (!sherlockWSI.progressBarMover) {
     sherlockWSI.progressBar(true)
@@ -256,7 +259,7 @@ sherlockWSI.loadImage = async (url=document.getElementById("imageURLInput").valu
     sherlockWSI.viewer = OpenSeadragon(sherlockWSI.default.osdViewerOptions)
     sherlockWSI.viewer.navigator.setVisible(false)
     sherlockWSI.viewer.addHandler('update-viewport', sherlockWSI.handlers.viewer.updateViewport)
-    // sherlockWSI.viewer.addHandler('animation-finish', sherlockWSI.handlers.viewer.animationFinish)
+    sherlockWSI.viewer.addHandler('animation-finish', sherlockWSI.handlers.viewer.animationFinish)
     sherlockWSI.viewer.addHandler('navigator-click', sherlockWSI.handlers.viewer.navigatorClick)
   }
   else {
@@ -296,7 +299,7 @@ sherlockWSI.loadDefaultImage = async () => {
   // const defaultWSIURL = "http://127.0.0.1:8081/Slide-0023381.svs"
   const imageSelector = document.getElementById("imageSelect")
   imageSelector.value = imageSelector.firstElementChild.value
-  sherlockWSI.loadImage(imageSelector.value)
+  sherlockWSI.loadImageFromSelector()
 }
 
 sherlockWSI.addServiceWorker = async () => {
@@ -310,10 +313,6 @@ sherlockWSI.addServiceWorker = async () => {
 	}
 }
 
-sherlockWSI.selectImage = () => {
-  const imageSelector = document.getElementById("imageSelect")
-  sherlockWSI.loadImage(imageSelector.value)
-}
 
 sherlockWSI.populateImageSelector = async () => {
   const imageSelector = document.getElementById("imageSelect")
@@ -327,8 +326,8 @@ sherlockWSI.populateImageSelector = async () => {
   })
 }
 
+sherlockWSI.addServiceWorker()
 window.onload = async () => {
-  await sherlockWSI.addServiceWorker()
   loadHashParams()
   
   if (!hashParams["fileURL"]) {
