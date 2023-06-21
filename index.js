@@ -22,7 +22,7 @@ sherlockWSI.default = {
     navigatorId: "osdNavigator",
     navigatorDisplayRegionColor: "#e7f8ff",
     imageLoaderLimit: 15,
-    immediateRender: true,
+    immediateRender: false,
     timeout: 180*1000,
     crossOriginPolicy: "Anonymous",
     homeButton: "home",
@@ -54,11 +54,10 @@ sherlockWSI.handlers = {
       
     },
     navigatorClick: (e) => {
-      console.log(sherlockWSI.viewer.navigator.__lastClickedPoint, Date.now())
       if (e.quick && !e.shift) {
         if (sherlockWSI.viewer.navigator.__lastClickedPoint && sherlockWSI.viewer.navigator.__lastClickedPoint.x === e.position.x && sherlockWSI.viewer.navigator.__lastClickedPoint.y === e.position.y  && Date.now() - sherlockWSI.viewer.navigator.__lastClickedPoint.time < 500) {
           // double click
-          sherlockWSI.viewer.zoomTo()
+          // sherlockWSI.viewer.zoomTo()
         } else {
           sherlockWSI.viewer.navigator.__lastClickedPoint = e.position
           sherlockWSI.viewer.navigator.__lastClickedPoint.time = Date.now()
@@ -257,12 +256,12 @@ sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value)
   
   if (!sherlockWSI.viewer) {
     sherlockWSI.viewer = OpenSeadragon(sherlockWSI.default.osdViewerOptions)
-    sherlockWSI.viewer.navigator.setVisible(false)
     sherlockWSI.viewer.addHandler('update-viewport', sherlockWSI.handlers.viewer.updateViewport)
     sherlockWSI.viewer.addHandler('animation-finish', sherlockWSI.handlers.viewer.animationFinish)
     sherlockWSI.viewer.addHandler('navigator-click', sherlockWSI.handlers.viewer.navigatorClick)
   }
   else {
+    sherlockWSI.viewer.navigator.setVisible(false)
     sherlockWSI.removePanAndZoomFromHash()
   }
 
