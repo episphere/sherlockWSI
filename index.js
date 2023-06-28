@@ -21,12 +21,14 @@ sherlockWSI.default = {
     showNavigator: true,
     navigatorId: "osdNavigator",
     navigatorDisplayRegionColor: "#e7f8ff",
-    imageLoaderLimit: 15,
-    immediateRender: false,
-    timeout: 180*1000,
+    // imageLoaderLimit: 15,
+    // immediateRender: false,
+    // timeout: 180*1000,
     crossOriginPolicy: "Anonymous",
-    homeButton: "home",
-    zoomInButton: "zoomIn"
+    // homeButton: "home",
+    // zoomInButton: "zoomIn",
+    sequenceMode: true,
+    showSequenceControl: false
   }
 }
 
@@ -206,34 +208,38 @@ sherlockWSI.progressBar = (show=true) => {
 
 sherlockWSI.createTileSource = async (url) => {
   // Create a tile source for the image.
-  const imageURLForSW = `${sherlockWSI.tileServerBasePath}/${encodeURIComponent(url)}`
-  const infoURL = `${imageURLForSW}/info.json`
+  let tiffTileSources = await OpenSeadragon.GeoTIFFTileSource.getAllTileSources(url, {logLatency: true});
+  // tiffTileSources.then(ts=>viewer.open(ts));
 
-  let imageInfoReq = await fetch(infoURL)
-  if (imageInfoReq.status !== 200) {
-    //alert("An error occurred retrieving the image information. Please try again later.")
-    console.error(`Encountered HTTP ${imageInfoReq.status} while retrieving image information.`)
+  // const imageURLForSW = `${sherlockWSI.tileServerBasePath}/${encodeURIComponent(url)}`
+  // const infoURL = `${imageURLForSW}/info.json`
+
+  // let imageInfoReq = await fetch(infoURL)
+  // if (imageInfoReq.status !== 200) {
+  //   //alert("An error occurred retrieving the image information. Please try again later.")
+  //   console.error(`Encountered HTTP ${imageInfoReq.status} while retrieving image information.`)
     
-    sherlockWSI.modifyHashString({
-      'fileURL': undefined
-    })
+  //   sherlockWSI.modifyHashString({
+  //     'fileURL': undefined
+  //   })
     
-    sherlockWSI.progressBar(false)
+  //   sherlockWSI.progressBar(false)
     
-    return undefined
-  }
+  //   return undefined
+  // }
   
-  const imageInfo = await imageInfoReq.json()
-  const { width, height } = imageInfo
-  const tileSource = {
-    ...sherlockWSI.default.tileSourceOptions,
-    "@context": imageInfo["@context"],
-    "@id": imageURLForSW,
-    width,
-    height,
-  }
+  // const imageInfo = await imageInfoReq.json()
+  // const { width, height } = imageInfo
+  // const tileSource = {
+  //   ...sherlockWSI.default.tileSourceOptions,
+  //   "@context": imageInfo["@context"],
+  //   "@id": imageURLForSW,
+  //   width,
+  //   height,
+  // }
 
-  return tileSource
+  // return tileSource
+  return tiffTileSources
 }
 
 sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'fileURL': document.getElementById("imageSelect").value }) : {}
@@ -261,6 +267,7 @@ sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value)
     sherlockWSI.viewer.addHandler('navigator-click', sherlockWSI.handlers.viewer.navigatorClick)
   }
   else {
+    sherlockWSI.viewer.close()
     sherlockWSI.viewer.navigator.setVisible(false)
     sherlockWSI.removePanAndZoomFromHash()
   }
@@ -301,16 +308,16 @@ sherlockWSI.loadDefaultImage = async () => {
   sherlockWSI.loadImageFromSelector()
 }
 
-sherlockWSI.addServiceWorker = async () => {
-	if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register(`./imagebox3.js?tileServerPathSuffix=${tileServerPathSuffix}`)
-		.catch((error) => {
-      console.log('Service worker registration failed', error)
-      reject(error)
-		})
-    await navigator.serviceWorker.ready
-	}
-}
+// sherlockWSI.addServiceWorker = async () => {
+// 	if ('serviceWorker' in navigator) {
+//     navigator.serviceWorker.register(`./imagebox3.js?tileServerPathSuffix=${tileServerPathSuffix}`)
+// 		.catch((error) => {
+//       console.log('Service worker registration failed', error)
+//       reject(error)
+// 		})
+//     await navigator.serviceWorker.ready
+// 	}
+// }
 
 
 sherlockWSI.populateImageSelector = async () => {
@@ -325,7 +332,7 @@ sherlockWSI.populateImageSelector = async () => {
   })
 }
 
-sherlockWSI.addServiceWorker()
+// sherlockWSI.addServiceWorker()
 window.onload = async () => {
   loadHashParams()
   
