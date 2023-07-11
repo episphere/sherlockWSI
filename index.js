@@ -65,6 +65,11 @@ sherlockWSI.handlers = {
           sherlockWSI.viewer.navigator.__lastClickedPoint.time = Date.now()
         }
       }
+    },
+
+    // DELETE LATER
+    tileLoadFailed: (e) => {
+      console.log(e)
     }
   },
   
@@ -167,7 +172,15 @@ sherlockWSI.progressBar = (show=true) => {
     let progressBarCurrentWidth = 0
     let moveAheadBy = 2
     
+    const startTime = Date.now()
+    let movedFlag = false
     sherlockWSI.progressBarMover = setInterval(() => {
+      if (!movedFlag && Date.now() - startTime > 2*1000) { // if it's been more than 10 seconds, pan on the viewer once to solve not loading issue on some devices
+        movedFlag = true
+        const { x, y } = sherlockWSI.viewer.viewport.getCenter()
+        sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(x+0.005, y+0.005))
+        setTimeout(() => sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(x, y)), 100)
+      }
       if (progressBarCurrentWidth > 35 && progressBarCurrentWidth < 65) {
         moveAheadBy = 0.75
       } 
@@ -265,6 +278,7 @@ sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value)
     sherlockWSI.viewer.addHandler('update-viewport', sherlockWSI.handlers.viewer.updateViewport)
     sherlockWSI.viewer.addHandler('animation-finish', sherlockWSI.handlers.viewer.animationFinish)
     sherlockWSI.viewer.addHandler('navigator-click', sherlockWSI.handlers.viewer.navigatorClick)
+    sherlockWSI.viewer.addHandler('tile-load-failed', sherlockWSI.handlers.viewer.tileLoadFailed)
   }
   else {
     sherlockWSI.viewer.close()
