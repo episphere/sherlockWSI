@@ -175,7 +175,7 @@ sherlockWSI.progressBar = (show=true) => {
     const startTime = Date.now()
     let movedFlag = false
     sherlockWSI.progressBarMover = setInterval(() => {
-      if (!movedFlag && Date.now() - startTime > 2*1000) { // if it's been more than 10 seconds, pan on the viewer once to solve not loading issue on some devices
+      if (!movedFlag && Date.now() - startTime > 10*1000) { // if it's been more than 10 seconds, pan on the viewer once to solve not loading issue on some devices
         movedFlag = true
         const { x, y } = sherlockWSI.viewer.viewport.getCenter()
         sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(x+0.005, y+0.005))
