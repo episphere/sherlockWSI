@@ -360,10 +360,10 @@ sherlockWSI.populateImageSelector = async () => {
 window.onload = async () => {
   loadHashParams()
   
+  await sherlockWSI.populateImageSelector()
   if (!hashParams["fileURL"]) {
     sherlockWSI.loadDefaultImage()
   }
-  await sherlockWSI.populateImageSelector()
 }
 
 window.onhashchange = loadHashParams
