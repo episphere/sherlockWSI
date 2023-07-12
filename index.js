@@ -49,7 +49,7 @@ sherlockWSI.handlers = {
     
     open: ({eventSource: viewer}) => {
       viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', sherlockWSI.handlers.tiledImage.fullyLoadedChange)
-      setTimeout(() => {
+      setTimeout(() => { // Try a bunch of things to resolve OSD not fully loading due to tile errors.
         const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
         if (!isImageLoaded) {
           sherlockWSI.handlePanAndZoom()
@@ -59,12 +59,12 @@ sherlockWSI.handlers = {
               const zoom = viewer.viewport.getZoom()
               viewer.viewport.zoomTo(zoom+0.1)
               setTimeout(()=> viewer.viewport.zoomTo(zoom), 1000)
-              setTimeout(() => {
+              setTimeout(() => { // If all else fails, just run the fully-loaded handler 🥲
                 const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
                 if (!isImageLoaded) {
                   sherlockWSI.handlers.tiledImage.fullyLoadedChange()
                 }
-              })
+              }, 1500)
             }
           }, 500)
         }
