@@ -58,7 +58,13 @@ sherlockWSI.handlers = {
             if (!isImageLoaded) {
               const zoom = viewer.viewport.getZoom()
               viewer.viewport.zoomTo(zoom+0.1)
-              setTimeout(()=> viewer.viewport.zoomTo(zoom), 200)
+              setTimeout(()=> viewer.viewport.zoomTo(zoom), 1000)
+              setTimeout(() => {
+                const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
+                if (!isImageLoaded) {
+                  sherlockWSI.handlers.tiledImage.fullyLoadedChange()
+                }
+              })
             }
           }, 500)
         }
