@@ -27,8 +27,8 @@ sherlockWSI.default = {
     crossOriginPolicy: "Anonymous",
     // homeButton: "home",
     // zoomInButton: "zoomIn",
-    sequenceMode: true,
-    showSequenceControl: false
+    sequenceMode: false,
+    // showSequenceControl: false
   }
 }
 
@@ -49,7 +49,20 @@ sherlockWSI.handlers = {
     
     open: ({eventSource: viewer}) => {
       viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', sherlockWSI.handlers.tiledImage.fullyLoadedChange)
-      
+      setTimeout(() => {
+        const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
+        if (!isImageLoaded) {
+          sherlockWSI.handlePanAndZoom()
+          setTimeout (() => {
+            const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
+            if (!isImageLoaded) {
+              const zoom = viewer.viewport.getZoom()
+              viewer.viewport.zoomTo(zoom+0.1)
+              setTimeout(()=> viewer.viewport.zoomTo(zoom), 200)
+            }
+          }, 500)
+        }
+      }, 7*1000)
     },
     updateViewport: (e) => {
       // console.log(e)
@@ -172,15 +185,7 @@ sherlockWSI.progressBar = (show=true) => {
     let progressBarCurrentWidth = 0
     let moveAheadBy = 2
     
-    const startTime = Date.now()
-    let movedFlag = false
     sherlockWSI.progressBarMover = setInterval(() => {
-      if (!movedFlag && Date.now() - startTime > 10*1000) { // if it's been more than 10 seconds, pan on the viewer once to solve not loading issue on some devices
-        movedFlag = true
-        const { x, y } = sherlockWSI.viewer.viewport.getCenter()
-        sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(x+0.005, y+0.005))
-        setTimeout(() => sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(x, y)), 100)
-      }
       if (progressBarCurrentWidth > 35 && progressBarCurrentWidth < 65) {
         moveAheadBy = 0.75
       } 
@@ -252,7 +257,7 @@ sherlockWSI.createTileSource = async (url) => {
   // }
 
   // return tileSource
-  return tiffTileSources
+  return tiffTileSources[0]
 }
 
 sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'fileURL': document.getElementById("imageSelect").value }) : {}
@@ -275,6 +280,7 @@ sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value)
   
   if (!sherlockWSI.viewer) {
     sherlockWSI.viewer = OpenSeadragon(sherlockWSI.default.osdViewerOptions)
+    sherlockWSI.viewer.navigator.setVisible(false)
     sherlockWSI.viewer.addHandler('update-viewport', sherlockWSI.handlers.viewer.updateViewport)
     sherlockWSI.viewer.addHandler('animation-finish', sherlockWSI.handlers.viewer.animationFinish)
     sherlockWSI.viewer.addHandler('navigator-click', sherlockWSI.handlers.viewer.navigatorClick)
@@ -291,11 +297,13 @@ sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value)
 }
 
 sherlockWSI.handlePanAndZoom = (centerX=hashParams?.wsiCenterX, centerY=hashParams?.wsiCenterY, zoomLevel=hashParams?.wsiZoom) => {
+  let viewportChangedFlag = false
   if (sherlockWSI.viewer?.viewport) {
     const currentZoom = sherlockWSI.viewer.viewport.getZoom()
     zoomLevel = parseFloat(zoomLevel)
     if (zoomLevel && zoomLevel !== currentZoom) {
       sherlockWSI.viewer.viewport.zoomTo(zoomLevel)
+      viewportChangedFlag = true
     }
     
     const { x: currentX, y: currentY } = sherlockWSI.viewer.viewport.getCenter()
@@ -303,8 +311,10 @@ sherlockWSI.handlePanAndZoom = (centerX=hashParams?.wsiCenterX, centerY=hashPara
     centerY = parseFloat(centerY)
     if (centerX && centerY && ( centerX !== currentX || centerY !== currentY )) {
       sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(centerX, centerY))
+      viewportChangedFlag = true
     }
   }
+  return viewportChangedFlag
 }
 
 sherlockWSI.removePanAndZoomFromHash = () => {
@@ -351,10 +361,9 @@ window.onload = async () => {
   loadHashParams()
   
   if (!hashParams["fileURL"]) {
-    // setTimeout(() => , 1000)
+    sherlockWSI.loadDefaultImage()
   }
   await sherlockWSI.populateImageSelector()
-  sherlockWSI.loadDefaultImage()
 }
 
 window.onhashchange = loadHashParams
