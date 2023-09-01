@@ -232,7 +232,7 @@ sherlockWSI.progressBar = (show=true) => {
 
 sherlockWSI.createTileSource = async (url) => {
   // Create a tile source for the image.
-  let tiffTileSources = await OpenSeadragon.GeoTIFFTileSource.getAllTileSources(url, {logLatency: true});
+  let tiffTileSources = await OpenSeadragon.GeoTIFFTileSource.getAllTileSources(url, {logLatency: true, cache: false});
   // tiffTileSources.then(ts=>viewer.open(ts));
 
   // const imageURLForSW = `${sherlockWSI.tileServerBasePath}/${encodeURIComponent(url)}`
