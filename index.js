@@ -47,8 +47,12 @@ sherlockWSI.handlers = {
       }
     },
     
-    open: ({eventSource: viewer}) => {
+    open: async ({eventSource: viewer}) => {
       viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', sherlockWSI.handlers.tiledImage.fullyLoadedChange)
+      const imageSelector = document.getElementById("imageSelect")
+      const selectedImageId = imageSelector.options[imageSelector.selectedIndex].dataset.slideId
+      await sherlockWSI.populateHeatmapImageSelector(selectedImageId, true, true)
+
       setTimeout(() => { // Try a bunch of things to resolve OSD not fully loading due to tile errors.
         const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
         if (!isImageLoaded) {
@@ -94,10 +98,6 @@ sherlockWSI.handlers = {
   
   tiledImage: {
     fullyLoadedChange: async (_) => {
-      const imageSelector = document.getElementById("imageSelect")
-      const selectedImageId = imageSelector.options[imageSelector.selectedIndex].dataset.slideId
-      await sherlockWSI.populateHeatmapImageSelector(selectedImageId, true, true)
-
       sherlockWSI.viewer.navigator.world.removeItem(sherlockWSI.viewer.navigator.world.getItemAt(0))
       sherlockWSI.viewer.navigator.setVisible(true)
       sherlockWSI.progressBar(false)
@@ -341,10 +341,28 @@ sherlockWSI.handleViewerOptionsInHash = (centerX=hashParams?.wsiCenterX, centerY
         sherlockWSI.viewer.navigator.addSimpleImage({
           'url': heatmapURL
         })
+        const heatmapImageSelector = document.getElementById("heatmapImageSelector")
+        if (heatmapImageSelector && classPrediction !== heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className) {
+          const valueToUpdateTo = heatmapImageSelector.querySelector(`option[data-class-name="${classPrediction}"`).value
+          heatmapImageSelector.value = valueToUpdateTo
+        }
       }
     }
   }
   return viewportChangedFlag
+}
+
+const showLoader = (id="imgLoaderDiv", overlayOnElement=path.tmaCanvas) => {
+  const loaderDiv = document.getElementById(id)
+  if (loaderDiv && overlayOnElement) {
+    const {
+      width,
+      height
+    } = overlayOnElement.getBoundingClientRect()
+    loaderDiv.style.width = width
+    loaderDiv.style.height = height
+    loaderDiv.style.display = "inline-block";
+  }
 }
 
 sherlockWSI.removeViewerOptionsFromHash = () => {
@@ -394,7 +412,7 @@ const heatmapImageChangeHandler = () => {
   })
 }
 
-sherlockWSI.populateHeatmapImageSelector = async (imageId, selectFirst=true, forceRefresh=true) => {
+sherlockWSI.populateHeatmapImageSelector = async (imageId, select=true, forceRefresh=true) => {
   const navigatorParent = document.getElementById("osdNavigatorParent")
   
   if (navigatorParent.querySelector("div#heatmapImageSelector")) {
@@ -423,7 +441,11 @@ sherlockWSI.populateHeatmapImageSelector = async (imageId, selectFirst=true, for
   })
 
   navigatorParent.appendChild(heatmapImageSelector)
-  if (selectFirst) {
+  if (select) {
+    if (hashParams.classPrediction) {
+      const valueToUpdateTo = heatmapImageSelector.children.querySelector(`option[data-class-name="${hashParams.classPrediction}"`).value
+      heatmapImageSelector.value = valueToUpdateTo
+    }
     heatmapImageSelector.dispatchEvent(new Event('change'))
   }
 }

@@ -119,3 +119,19 @@ label[for="imageURLInput"] {
   max-width: 100%;
   transition: width 0.2s linear;
 }
+
+.loaderDiv {
+  display: none;
+  position: absolute;
+  background-color: rgba(220, 220, 220, 0.4);
+  z-index: 9999999;
+}
+
+.loaderImg {
+  position: absolute;
+  margin: auto;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
