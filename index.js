@@ -52,7 +52,7 @@ sherlockWSI.handlers = {
       setTimeout(() => { // Try a bunch of things to resolve OSD not fully loading due to tile errors.
         const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
         if (!isImageLoaded) {
-          sherlockWSI.handlePanAndZoom()
+          sherlockWSI.handleViewerOptionsInHash()
           setTimeout (() => {
             const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
             if (!isImageLoaded) {
@@ -93,13 +93,15 @@ sherlockWSI.handlers = {
   },
   
   tiledImage: {
-    fullyLoadedChange: (_) => {
+    fullyLoadedChange: async (_) => {
       const imageSelector = document.getElementById("imageSelect")
+      const selectedImageId = imageSelector.options[imageSelector.selectedIndex].dataset.slideId
+      await sherlockWSI.populateHeatmapImageSelector(selectedImageId, true, true)
+
       sherlockWSI.viewer.navigator.world.removeItem(sherlockWSI.viewer.navigator.world.getItemAt(0))
-      sherlockWSI.viewer.navigator.addSimpleImage({url: imageSelector.options[imageSelector.selectedIndex].dataset["heatmapImage"]})
       sherlockWSI.viewer.navigator.setVisible(true)
       sherlockWSI.progressBar(false)
-      sherlockWSI.handlePanAndZoom()
+      sherlockWSI.handleViewerOptionsInHash()
     }
   },
 
@@ -129,13 +131,13 @@ const loadHashParams = async () => {
   
   }
   
-  if (hashParams["fileURL"] && previousHashParams?.fileURL !== hashParams["fileURL"]) {
+  if (hashParams["slideName"] && previousHashParams?.slideName !== hashParams["slideName"]) {
     sherlockWSI.progressBar(false)
-    sherlockWSI.loadImage(hashParams["fileURL"])
+    sherlockWSI.loadImage(hashParams["slideName"])
   }
 
-  if (hashParams.wsiCenterX && hashParams.wsiCenterY && hashParams.wsiZoom) {
-    sherlockWSI.handlePanAndZoom(hashParams.wsiCenterX, hashParams.wsiCenterY, hashParams.wsiZoom)
+  if (hashParams.wsiCenterX && hashParams.wsiCenterY && hashParams.wsiZoom && hashParams.classPrediction) {
+    sherlockWSI.handleViewerOptionsInHash(hashParams.wsiCenterX, hashParams.wsiCenterY, hashParams.wsiZoom)
   }
 
   window.localStorage.hashParams = JSON.stringify(hashParams)
@@ -266,18 +268,28 @@ sherlockWSI.createTileSource = async (url) => {
   return tiffTileSources[0]
 }
 
-sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'fileURL': document.getElementById("imageSelect").value }) : {}
+sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'slideName': document.getElementById("imageSelect").value }) : {}
 
-sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value) => {
+sherlockWSI.loadHeatmapFromSelector = () => {
+  const heatmapImageSelector = document.getElementById("heatmapImageSelect")
+  if (heatmapImageSelector.value.length > 0) {
+    sherlockWSI.modifyHashString({'classPrediction': heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className })
+  } else {
+    return {}
+  }
+}
+
+sherlockWSI.loadImage = async (slideName=document.getElementById("imageSelect").value) => {
   // Load the image.
-  if (url !== document.getElementById("imageSelect").value) {
-    document.getElementById("imageSelect").value = url
+  if (slideName !== document.getElementById("imageSelect").value) {
+    document.getElementById("imageSelect").value = slideName
   }
   
   if (!sherlockWSI.progressBarMover) {
     sherlockWSI.progressBar(true)
   }
 
+  const url = `${sherlockWSI.imageServerBasePath}/${slideName}`
   const tileSource = await sherlockWSI.createTileSource(url)
   if (!tileSource) {
     //alert("Error retrieving image information!")
@@ -295,14 +307,14 @@ sherlockWSI.loadImage = async (url=document.getElementById("imageSelect").value)
   else {
     sherlockWSI.viewer.close()
     sherlockWSI.viewer.navigator.setVisible(false)
-    sherlockWSI.removePanAndZoomFromHash()
+    sherlockWSI.removeViewerOptionsFromHash()
   }
 
   sherlockWSI.viewer.addOnceHandler('open', sherlockWSI.handlers.viewer.open)
   sherlockWSI.viewer.open(tileSource)
 }
 
-sherlockWSI.handlePanAndZoom = (centerX=hashParams?.wsiCenterX, centerY=hashParams?.wsiCenterY, zoomLevel=hashParams?.wsiZoom) => {
+sherlockWSI.handleViewerOptionsInHash = (centerX=hashParams?.wsiCenterX, centerY=hashParams?.wsiCenterY, zoomLevel=hashParams?.wsiZoom, classPrediction=hashParams?.classPrediction) => {
   let viewportChangedFlag = false
   if (sherlockWSI.viewer?.viewport) {
     const currentZoom = sherlockWSI.viewer.viewport.getZoom()
@@ -319,15 +331,28 @@ sherlockWSI.handlePanAndZoom = (centerX=hashParams?.wsiCenterX, centerY=hashPara
       sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(centerX, centerY))
       viewportChangedFlag = true
     }
+
+    if (classPrediction) {
+      const predictedClass = sherlockWSI.classMappings.find(predClass => predClass.name === classPrediction)
+      const predictionImage = sherlockWSI.imageMappings.images.find(img => img.slideName === hashParams.slideName)?.predictionImages.find(predImg => predImg.classId === predictedClass.id)
+      const heatmapURL = `${sherlockWSI.imageServerBasePath}/${predictedClass.name}/${predictionImage.image}`
+      if (sherlockWSI.viewer.navigator.world.getItemCount() === 0 || sherlockWSI.viewer.navigator.world.getItemAt(0).source.url !== heatmapURL) {
+        sherlockWSI.viewer.navigator.close()
+        sherlockWSI.viewer.navigator.addSimpleImage({
+          'url': heatmapURL
+        })
+      }
+    }
   }
   return viewportChangedFlag
 }
 
-sherlockWSI.removePanAndZoomFromHash = () => {
+sherlockWSI.removeViewerOptionsFromHash = () => {
   sherlockWSI.modifyHashString({
     'wsiCenterX': undefined,
     'wsiCenterY': undefined,
-    'wsiZoom': undefined
+    'wsiZoom': undefined,
+    'classPrediction': undefined,
   }, true)
 }
 
@@ -338,28 +363,69 @@ sherlockWSI.loadDefaultImage = async () => {
   sherlockWSI.loadImageFromSelector()
 }
 
-// sherlockWSI.addServiceWorker = async () => {
-// 	if ('serviceWorker' in navigator) {
-//     navigator.serviceWorker.register(`./imagebox3.js?tileServerPathSuffix=${tileServerPathSuffix}`)
-// 		.catch((error) => {
-//       console.log('Service worker registration failed', error)
-//       reject(error)
-// 		})
-//     await navigator.serviceWorker.ready
-// 	}
-// }
+sherlockWSI.getClassMappings = async () => {
+  const classMappings = sherlockWSI.classMappings || await (await fetch(`${sherlockWSI.imageServerBasePath}/classMappings.json`)).json()
+  return classMappings
+}
 
+sherlockWSI.getImageMappings = async () => {
+  const imageMappings = sherlockWSI.imageMappings || await (await fetch(`${sherlockWSI.imageServerBasePath}/imageMappings.json`)).json()
+  return imageMappings
+}
 
 sherlockWSI.populateImageSelector = async () => {
   const imageSelector = document.getElementById("imageSelect")
-  const imageMappings = await (await fetch(`${sherlockWSI.imageServerBasePath}/imageMappings.json`)).json()
-  imageMappings.images.forEach(img => {
+  sherlockWSI.imageMappings = await sherlockWSI.getImageMappings()
+  sherlockWSI.imageMappings.images.forEach(img => {
     const optionElement = document.createElement("option")
-    optionElement.innerText = img.name
-    optionElement.value = `${sherlockWSI.imageServerBasePath}/${img.name}`
-    optionElement.dataset["heatmapImage"] = `${sherlockWSI.imageServerBasePath}/${img.heatmapImage}`
+    optionElement.id = `imageSelector_slideId_${img.id}`
+    optionElement.innerText = img.slideName
+    optionElement.value = img.slideName
+    optionElement.dataset["slideId"] = `${img.id}`
     imageSelector.appendChild(optionElement)
   })
+}
+
+const heatmapImageChangeHandler = () => {
+  const heatmapImageSelector = document.getElementById("heatmapImageSelector")
+  const selectedClass = heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className
+  sherlockWSI.modifyHashString({
+    'classPrediction': selectedClass
+  })
+}
+
+sherlockWSI.populateHeatmapImageSelector = async (imageId, selectFirst=true, forceRefresh=true) => {
+  const navigatorParent = document.getElementById("osdNavigatorParent")
+  
+  if (navigatorParent.querySelector("div#heatmapImageSelector")) {
+    navigatorParent.removeChild(navigatorParent.querySelector("heatmapImageSelector"))
+  }
+  
+  if (!sherlockWSI.classMappings) {
+    sherlockWSI.classMappings = await sherlockWSI.getClassMappings()
+  }
+  
+  const { predictionImages } = sherlockWSI.imageMappings.images.find(img => img.id === imageId)
+
+  const heatmapImageSelector = document.createElement('select')
+  heatmapImageSelector.id = "heatmapImageSelector"
+  heatmapImageSelector.onchange = heatmapImageChangeHandler
+
+  predictionImages.forEach(heatmapImg => {
+    const predictionClass = sherlockWSI.classMappings.find(predClass => predClass.id === heatmapImg.classId)
+    if (predictionClass) {
+      const optionElement = document.createElement('option')
+      optionElement.value = `${predictionClass.name}/${heatmapImg.image}`
+      optionElement.innerText = predictionClass.displayName
+      optionElement.dataset["className"] = predictionClass.name
+      heatmapImageSelector.appendChild(optionElement)
+    }
+  })
+
+  navigatorParent.appendChild(heatmapImageSelector)
+  if (selectFirst) {
+    heatmapImageSelector.dispatchEvent(new Event('change'))
+  }
 }
 
 // sherlockWSI.addServiceWorker()
@@ -367,7 +433,7 @@ window.onload = async () => {
   loadHashParams()
   
   await sherlockWSI.populateImageSelector()
-  if (!hashParams["fileURL"]) {
+  if (!hashParams["slideName"]) {
     sherlockWSI.loadDefaultImage()
   }
 }

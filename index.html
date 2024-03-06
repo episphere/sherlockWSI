@@ -26,7 +26,7 @@
       
       <div id="imageURLTextboxParent">
         
-        <span><b>Image Name: </b><select id="imageSelect" onchange="sherlockWSI.loadImageFromSelector()"></select>
+        <b>Image Name: </b><select id="imageSelect" onchange="sherlockWSI.loadImageFromSelector()"></select>
         
       </div>
       
@@ -41,7 +41,9 @@
           </div>
           <div id="openseadragon" class="openseadragon"></div>
         </div>
-        <div id="osdNavigator" style="width:90%; height: 90%"></div>
+        <div id="osdNavigatorParent">
+          <div id="osdNavigator"></div>
+        </div>
     </div>
     
   </div>
