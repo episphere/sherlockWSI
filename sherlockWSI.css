@@ -1,8 +1,13 @@
+:root {
+  --navigatorWidth: 70%;
+  --navigatorHeight: 70%;
+}
+
 body {
   color: navy;
   border-style: solid;
   border-width: 20;
-  border-color: white
+  border-color: white;
 }
 
 h1, h1>a {
@@ -25,6 +30,14 @@ a:hover {
   justify-content: space-between;
 }
 
+#imageSelectorParent {
+  display: none;
+}
+
+#heatmapImageSelector {
+  width: 95%;
+}
+
 .openseadragon {
   width: 100%;
   height: 80vh;
@@ -35,8 +48,8 @@ a:hover {
 
 #viewerParent {
   display: grid;
-  grid-template-columns: 65% 35%;
-  column-gap: 20px;
+  grid-template-columns: 60% 38%;
+  justify-content: space-between;
 }
 
 #viewer {
@@ -52,16 +65,26 @@ a:hover {
   margin-block-end: 0;
 }
 
-#osdNavigatorParent {
+#navigatorAndSelectorParent {
   display: grid;
   grid-auto-flow: row;
   grid-template-rows: auto 3rem;
   row-gap: 1rem;
+  width: 100%;
+  height: 100%;
+  /* justify-content: center; */
+  vertical-align: middle;
+  margin-top: 3px;
+}
+
+#osdNavigatorParent {
+  margin: calc((100% - var(--navigatorWidth))/2) 0;
 }
 
 #osdNavigator {
-  width: 100%;
-  height: 100%;
+  width: var(--navigatorWidth);
+  height: var(--navigatorHeight);
+  margin: calc((100% - var(--navigatorWidth))/2) 0;
 }
 
 #imageURLTextboxParent {

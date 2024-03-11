@@ -25,8 +25,12 @@
       </h1>
       
       <div id="imageURLTextboxParent">
-        
-        <b>Image Name: </b><select id="imageSelect" onchange="sherlockWSI.loadImageFromSelector()"></select>
+        <span id="imageMapUploadParent">
+          <b>Upload Image Map: </b> <input type="file" id="imageMapUpload" accept=".json" onchange="imageMapUploadHandler()">
+        </span>
+        <span id="imageSelectorParent">
+          <b>Image Name: </b><select id="imageSelect" onchange="sherlockWSI.loadImageFromSelector()"></select>
+        </span>
         
       </div>
       
@@ -34,6 +38,7 @@
       
     </div>
     <hr>
+    
     <div id="viewerParent">
         <div id="viewer">
           <div id="progressBarContainer">
@@ -41,14 +46,15 @@
           </div>
           <div id="openseadragon" class="openseadragon"></div>
         </div>
-        <div id="osdNavigatorParent">
-          <div id="osdNavigator">
+        <div id="navigatorAndSelectorParent">
+          <div id="osdNavigatorParent">
+            <div id="osdNavigator">
+            </div>
           </div>
         </div>
     </div>
  
   </div>
-  <!-- <svg id="zoomIn" class="w-6 h-6" style="height: 40px; display: inline-block; position: relative; pointer-events: auto;" fill="#000" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M5 8a1 1 0 011-1h1V6a1 1 0 012 0v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V9H6a1 1 0 01-1-1z"></path><path fill-rule="evenodd" d="M2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8zm6-4a4 4 0 100 8 4 4 0 000-8z" clip-rule="evenodd"></path></svg> -->
 </body>
 
 </html>
