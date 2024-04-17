@@ -1,7 +1,11 @@
+const IS_PRIVATE = true
+
 const tileServerPathSuffix = "iiif"
 
 const sherlockWSI = {}
 sherlockWSI.imageServerBasePath = "https://storage.googleapis.com/sherlock_wsi"
+sherlockWSI.pathToData = ""
+sherlockWSI.imageMappingsFilename = "imageMappings.json"
 sherlockWSI.tileServerBasePath = `${window.location.origin}/${tileServerPathSuffix}`
 
 sherlockWSI.default = {
@@ -126,8 +130,7 @@ sherlockWSI.handlers = {
       sherlockWSI.progressBar(false)
       sherlockWSI.handleViewerOptionsInHash()
     }
-  },
-
+  }
 
 }
 
@@ -153,9 +156,8 @@ const loadHashParams = async () => {
   
   }
   
-  if (hashParams["slideName"] && previousHashParams?.slideName !== hashParams["slideName"]) {
-    sherlockWSI.progressBar(false)
-    sherlockWSI.loadImage(hashParams["slideName"])
+  if (hashParams["fileName"] && previousHashParams?.fileName !== hashParams["fileName"]) {
+    sherlockWSI.loadImage(hashParams["fileName"])
   } else if ((hashParams.wsiCenterX && hashParams.wsiCenterY && hashParams.wsiZoom) || hashParams.classPrediction) {
     sherlockWSI.handleViewerOptionsInHash(hashParams.wsiCenterX, hashParams.wsiCenterY, hashParams.wsiZoom)
   }
@@ -169,7 +171,7 @@ sherlockWSI.modifyHashString = (hashObj, removeFromHistory=true) => {
   
   Object.entries(hashObj).forEach(([key, val]) => {
     if (val && val !== hashParams[key]) {
-     
+    
       if (hashParams[key]) {
         hash = hash.replace(`${key}=${hashParams[key]}`, `${key}=${val}`)
       } 
@@ -288,28 +290,42 @@ sherlockWSI.createTileSource = async (url) => {
   return tiffTileSources[0]
 }
 
-sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'slideName': document.getElementById("imageSelect").value }) : {}
+sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'fileName': document.getElementById("imageSelect").value }) : {}
 
 sherlockWSI.loadHeatmapFromSelector = () => {
   const heatmapImageSelector = document.getElementById("heatmapImageSelect")
   if (heatmapImageSelector.value.length > 0) {
-    sherlockWSI.modifyHashString({'classPrediction': heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className })
+    sherlockWSI.modifyHashString({
+      'classPrediction': heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className 
+    })
   } else {
     return {}
   }
 }
 
-sherlockWSI.loadImage = async (slideName=document.getElementById("imageSelect").value) => {
+sherlockWSI.loadImage = async (fileName=document.getElementById("imageSelect").value) => {
+  
+  if (sherlockWSI.imageMappings.images.findIndex((image) => image.fileName === fileName) === -1) {
+    alert(`Image with filename ${fileName} not found in mappings.`)
+
+    sherlockWSI.modifyHashString({
+      'fileName': document.getElementById("imageSelect").value
+    })
+    return
+  }
+  
+  sherlockWSI.progressBar(false)
+  
   // Load the image.
-  if (slideName !== document.getElementById("imageSelect").value) {
-    document.getElementById("imageSelect").value = slideName
+  if (fileName !== document.getElementById("imageSelect").value) {
+    document.getElementById("imageSelect").value = fileName
   }
   
   if (!sherlockWSI.progressBarMover) {
     sherlockWSI.progressBar(true)
   }
 
-  const url = `${sherlockWSI.imageServerBasePath}/${slideName}`
+  const url = `${sherlockWSI.imageServerBasePath}/${fileName}`
   const tileSource = await sherlockWSI.createTileSource(url)
   if (!tileSource) {
     //alert("Error retrieving image information!")
@@ -354,7 +370,7 @@ sherlockWSI.handleViewerOptionsInHash = (centerX=hashParams?.wsiCenterX, centerY
 
     if (classPrediction) {
       const predictedClass = sherlockWSI.classMappings.find(predClass => predClass.name === classPrediction)
-      const predictionImage = sherlockWSI.imageMappings.images.find(img => img.slideName === hashParams.slideName)?.predictionImages.find(predImg => predImg.classId === predictedClass.id)
+      const predictionImage = sherlockWSI.imageMappings.images.find(img => img.fileName === hashParams.fileName)?.predictionImages.find(predImg => predImg.classId === predictedClass.id)
       const heatmapURL = `${sherlockWSI.imageServerBasePath}/${predictedClass.name}/${predictionImage.image}`
       if (sherlockWSI.viewer.navigator.world.getItemCount() === 0 || sherlockWSI.viewer.navigator.world.getItemAt(0).source.url !== heatmapURL) {
         sherlockWSI.viewer.navigator.close()
@@ -427,18 +443,18 @@ sherlockWSI.populateImageSelector = async () => {
     const optionElement = document.createElement("option")
     optionElement.id = `imageSelector_slideId_${img.id.replace(/ /,"_")}`
     optionElement.innerText = img.slideName
-    optionElement.value = img.slideName
+    optionElement.value = img.fileName
     optionElement.dataset["slideId"] = `${img.id}`
     imageSelector.appendChild(optionElement)
   })
 
-  if (hashParams.slideName) {
-    const valueToUpdateTo = imageSelector.querySelector(`option[value="${hashParams.slideName}"]`)?.value
+  if (hashParams.fileName) {
+    const valueToUpdateTo = imageSelector.querySelector(`option[value="${hashParams.fileName}"]`)?.value
     if (valueToUpdateTo) {
       imageSelector.value = valueToUpdateTo
     } else {
       sherlockWSI.modifyHashString({
-        'slideName': imageSelector.value
+        'fileName': imageSelector.value
       })
     }
   }
@@ -509,26 +525,29 @@ const imageMapUploadHandler = () => {
   reader.readAsText(imageMapFile)
 }
 
-
 const loadApp = async () => {
   document.getElementById("imageMapUploadParent").style.display = "none"
   document.getElementById("imageSelectorParent").style.display = "inline-block"
   
-  sherlockWSI.imageServerBasePath += `/${sherlockWSI.imageMappings.gcsBaseFolder}`
+  sherlockWSI.imageServerBasePath += IS_PRIVATE ? `/${sherlockWSI.imageMappings.gcsBaseFolder}` : ""
   
   loadHashParams()
   
   await sherlockWSI.populateImageSelector()
-  if (!hashParams["slideName"]) {
+  if (!hashParams["fileName"]) {
     sherlockWSI.loadDefaultImage()
   }
 }
 
 window.onhashchange = loadHashParams
 
-window.onload = () => {
+window.onload = async () => {
   try {
-    sherlockWSI.imageMappings = JSON.parse(localStorage.imageMappings)
+    if (IS_PRIVATE) {
+      sherlockWSI.imageMappings = JSON.parse(localStorage.imageMappings)
+    } else {
+      sherlockWSI.imageMappings = await (await fetch(`${sherlockWSI.imageServerBasePath}/${sherlockWSI.pathToData}/${sherlockWSI.imageMappingsFilename}`)).json()
+    }
     loadApp()
   } catch (e) {
     console.log("Image Mappings not found!")
