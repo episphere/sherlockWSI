@@ -3,7 +3,7 @@ const IS_PRIVATE = true
 const tileServerPathSuffix = "iiif"
 
 const sherlockWSI = {}
-sherlockWSI.imageServerBasePath = "https://storage.googleapis.com/sherlock_wsi"
+sherlockWSI.imageStoreBasePath = "https://storage.googleapis.com/sherlock_wsi"
 sherlockWSI.pathToData = ""
 sherlockWSI.imageMappingsFilename = "imageMappings.json"
 sherlockWSI.tileServerBasePath = `${window.location.origin}/${tileServerPathSuffix}`
@@ -37,7 +37,7 @@ sherlockWSI.default = {
   "navigatorOptions": {
       sizeRatio:         0.2,
       maintainSizeRatio: false,
-      displayRegionColor: "#ff4343",
+      displayRegionColor: "#00ff00",
       crossOriginPolicy: "Anonymous"
   }
 }
@@ -59,20 +59,38 @@ sherlockWSI.handlers = {
     
     open: async ({eventSource: viewer}) => {
       const navigatorElement = document.getElementById("osdNavigator")
-      const aspectRatio = sherlockWSI.viewer.world.getItemAt(0).source.aspectRatio
+      const aspectRatio = viewer.world.getItemAt(0).source.aspectRatio
 
       if (aspectRatio > 1) {
-        navigatorElement.style.setProperty("--navigatorWidth", "100%")
-        navigatorElement.style.setProperty("--navigatorHeight", `${ Math.min(navigatorElement.getBoundingClientRect().width / aspectRatio, navigatorElement.parentElement.getBoundingClientRect().width * 0.7 )}px`)
+        navigatorElement.style.setProperty("width", "100%")
+        navigatorElement.style.setProperty("height", `${ Math.min(navigatorElement.getBoundingClientRect().width / aspectRatio, navigatorElement.parentElement.getBoundingClientRect().width * 0.7 )}px`)
       } else {
-        navigatorElement.style.setProperty("--navigatorHeight", "100%")
-        navigatorElement.style.setProperty("--navigatorWidth", `${ Math.min(navigatorElement.getBoundingClientRect().height * aspectRatio, navigatorElement.parentElement.getBoundingClientRect().height * 0.7) }px`)
+        navigatorElement.style.setProperty("height", "100%")
+        navigatorElement.style.setProperty("width", `${ Math.min(navigatorElement.getBoundingClientRect().height * aspectRatio, navigatorElement.parentElement.getBoundingClientRect().height * 0.7) }px`)
       }
       
-      sherlockWSI.viewer.navigator = new OpenSeadragon.Navigator({ ...sherlockWSI.default.navigatorOptions, 'element': navigatorElement, 'viewer': sherlockWSI.viewer })
-      
-      viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', sherlockWSI.handlers.tiledImage.fullyLoadedChange)
+      viewer.navigator = new OpenSeadragon.Navigator({ ...sherlockWSI.default.navigatorOptions, 'element': navigatorElement, 'viewer': viewer })
+      viewer.navigator.element.parentElement.style.setProperty("display", "flex")
+      viewer.navigator.innerTracker.scrollHandler = (e) => {
+        const zoomValueAfterAction = viewer.viewport.getZoom(true) * (1 + (e.scroll*0.5))
+        if (zoomValueAfterAction >= viewer.viewport.getHomeZoom() && zoomValueAfterAction <= viewer.viewport.getMaxZoom()) {
+          viewer.viewport.zoomTo(zoomValueAfterAction)
+        }
+      }
+      viewer.navigator.innerTracker.dblClickHandler = async (e) => {
+        viewer.viewport.zoomTo(viewer.viewport.getMaxZoom()*0.95)
+        new Promise(resolve => viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', (e) => {
+          if (e.fullyLoaded) {
+            resolve()
+          }
+        })).then(() => {
+          e.quick = true
+          viewer.navigator.innerTracker.clickHandler(e)
+        })
+      }
 
+      viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', sherlockWSI.handlers.tiledImage.fullyLoadedChange)
+      console.log(viewer.world.getItemAt(0).getHandler())
       const imageSelector = document.getElementById("imageSelect")
       const selectedImageId = imageSelector.options[imageSelector.selectedIndex].dataset.slideId
 
@@ -103,18 +121,6 @@ sherlockWSI.handlers = {
       // console.log(e)
       
     },
-    navigatorClick: (e) => {
-      if (e.quick && !e.shift) {
-        if (sherlockWSI.viewer.navigator.__lastClickedPoint && sherlockWSI.viewer.navigator.__lastClickedPoint.x === e.position.x && sherlockWSI.viewer.navigator.__lastClickedPoint.y === e.position.y  && Date.now() - sherlockWSI.viewer.navigator.__lastClickedPoint.time < 500) {
-          // double click
-          // sherlockWSI.viewer.zoomTo()
-        } else {
-          sherlockWSI.viewer.navigator.__lastClickedPoint = e.position
-          sherlockWSI.viewer.navigator.__lastClickedPoint.time = Date.now()
-        }
-      }
-    },
-
     // DELETE LATER
     tileLoadFailed: (e) => {
       console.log(e)
@@ -325,7 +331,7 @@ sherlockWSI.loadImage = async (fileName=document.getElementById("imageSelect").v
     sherlockWSI.progressBar(true)
   }
 
-  const url = `${sherlockWSI.imageServerBasePath}/${fileName}`
+  const url = `${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${fileName}`
   const tileSource = await sherlockWSI.createTileSource(url)
   if (!tileSource) {
     //alert("Error retrieving image information!")
@@ -336,7 +342,6 @@ sherlockWSI.loadImage = async (fileName=document.getElementById("imageSelect").v
     sherlockWSI.viewer = OpenSeadragon(sherlockWSI.default.osdViewerOptions)
     sherlockWSI.viewer.addHandler('update-viewport', sherlockWSI.handlers.viewer.updateViewport)
     sherlockWSI.viewer.addHandler('animation-finish', sherlockWSI.handlers.viewer.animationFinish)
-    sherlockWSI.viewer.addHandler('navigator-click', sherlockWSI.handlers.viewer.navigatorClick)
     sherlockWSI.viewer.addHandler('tile-load-failed', sherlockWSI.handlers.viewer.tileLoadFailed)
   }
   else {
@@ -371,7 +376,7 @@ sherlockWSI.handleViewerOptionsInHash = (centerX=hashParams?.wsiCenterX, centerY
     if (classPrediction) {
       const predictedClass = sherlockWSI.classMappings.find(predClass => predClass.name === classPrediction)
       const predictionImage = sherlockWSI.imageMappings.images.find(img => img.fileName === hashParams.fileName)?.predictionImages.find(predImg => predImg.classId === predictedClass.id)
-      const heatmapURL = `${sherlockWSI.imageServerBasePath}/${predictedClass.name}/${predictionImage.image}`
+      const heatmapURL = `${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${predictedClass.name}/${predictionImage.image}`
       if (sherlockWSI.viewer.navigator.world.getItemCount() === 0 || sherlockWSI.viewer.navigator.world.getItemAt(0).source.url !== heatmapURL) {
         sherlockWSI.viewer.navigator.close()
         sherlockWSI.viewer.navigator.addSimpleImage({
@@ -427,12 +432,12 @@ sherlockWSI.loadDefaultImage = async () => {
 }
 
 sherlockWSI.getClassMappings = async () => {
-  const classMappings = sherlockWSI.classMappings || await (await fetch(`${sherlockWSI.imageServerBasePath}/classMappings.json`)).json()
+  const classMappings = sherlockWSI.classMappings || await (await fetch(`${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/classMappings.json`)).json()
   return classMappings
 }
 
 // sherlockWSI.getImageMappings = async () => {
-//   const imageMappings = sherlockWSI.imageMappings || await (await fetch(`${sherlockWSI.imageServerBasePath}/imageMappings.json`)).json()
+//   const imageMappings = sherlockWSI.imageMappings || await (await fetch(`${sherlockWSI.imageStoreBasePath}/imageMappings.json`)).json()
 //   return imageMappings
 // }
 
@@ -529,7 +534,7 @@ const loadApp = async () => {
   document.getElementById("imageMapUploadParent").style.display = "none"
   document.getElementById("imageSelectorParent").style.display = "inline-block"
   
-  sherlockWSI.imageServerBasePath += IS_PRIVATE ? `/${sherlockWSI.imageMappings.gcsBaseFolder}` : ""
+  sherlockWSI.pathToData = IS_PRIVATE ? sherlockWSI.imageMappings.gcsBaseFolder : ""
   
   loadHashParams()
   
@@ -544,11 +549,13 @@ window.onhashchange = loadHashParams
 window.onload = async () => {
   try {
     if (IS_PRIVATE) {
-      sherlockWSI.imageMappings = JSON.parse(localStorage.imageMappings)
-    } else {
-      sherlockWSI.imageMappings = await (await fetch(`${sherlockWSI.imageServerBasePath}/${sherlockWSI.pathToData}/${sherlockWSI.imageMappingsFilename}`)).json()
+      const localImageMappings = JSON.parse(localStorage.imageMappings)
+      sherlockWSI.pathToData = localImageMappings.gcsBaseFolder
     }
+    
+    sherlockWSI.imageMappings = await (await fetch(`${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${sherlockWSI.imageMappingsFilename}`)).json()
     loadApp()
+  
   } catch (e) {
     console.log("Image Mappings not found!")
   }
