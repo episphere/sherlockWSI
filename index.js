@@ -79,11 +79,14 @@ sherlockWSI.handlers = {
       }
       viewer.navigator.innerTracker.dblClickHandler = async (e) => {
         viewer.viewport.zoomTo(viewer.viewport.getMaxZoom()*0.95)
-        new Promise(resolve => viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', (e) => {
+        const fullyLoadedChangeHandlerForNavigator = (e, resolve) => {
           if (e.fullyLoaded) {
             resolve()
+          } else {
+            viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', (e) => fullyLoadedChangeHandlerForNavigator(e, resolve))
           }
-        })).then(() => {
+        }
+        new Promise(resolve => viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', (e) => fullyLoadedChangeHandlerForNavigator(e, resolve))).then(() => {
           e.quick = true
           viewer.navigator.innerTracker.clickHandler(e)
         })
