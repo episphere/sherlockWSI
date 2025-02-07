@@ -45,15 +45,17 @@ sherlockWSI.default = {
 sherlockWSI.handlers = {
   viewer: {
     animationFinish: ({eventSource: viewer}) => {
-      const center = viewer.viewport.getCenter()
-      const zoom = utils.roundToPrecision(viewer.viewport.getZoom(), 3)
+      if (viewer.world.getItemAt(0).getFullyLoaded()) {
+        const center = viewer.viewport.getCenter()
+        const zoom = utils.roundToPrecision(viewer.viewport.getZoom(), 3)
   
-      if (center.x !== parseFloat(hashParams.wsiCenterX) || center.y !== parseFloat(hashParams.wsiCenterY) || zoom !== parseFloat(hashParams.wsiZoom)) {
-        sherlockWSI.modifyHashString({
-          'wsiCenterX': center.x,
-          'wsiCenterY': center.y,
-          'wsiZoom': zoom
-        }, true)
+        if (center.x !== parseFloat(hashParams.wsiCenterX) || center.y !== parseFloat(hashParams.wsiCenterY) || zoom !== parseFloat(hashParams.wsiZoom)) {
+          sherlockWSI.modifyHashString({
+            'wsiCenterX': center.x,
+            'wsiCenterY': center.y,
+            'wsiZoom': zoom
+          }, true)
+        }
       }
     },
     
@@ -93,7 +95,6 @@ sherlockWSI.handlers = {
       }
 
       viewer.world.getItemAt(0).addOnceHandler('fully-loaded-change', sherlockWSI.handlers.tiledImage.fullyLoadedChange)
-      console.log(viewer.world.getItemAt(0).getHandler())
       const imageSelector = document.getElementById("imageSelect")
       const selectedImageId = imageSelector.options[imageSelector.selectedIndex].dataset.slideId
 
@@ -112,13 +113,27 @@ sherlockWSI.handlers = {
               setTimeout(() => { // If all else fails, just run the fully-loaded handler 🥲
                 const isImageLoaded = viewer.world.getItemAt(0).getFullyLoaded()
                 if (!isImageLoaded) {
-                  sherlockWSI.handlers.tiledImage.fullyLoadedChange()
+                  viewer.world.getItemAt(0)._setFullyLoaded(true)
                 }
               }, 1500)
             }
           }, 500)
         }
       }, 7*1000)
+    },
+    fullPage: ({eventSource: viewer, fullPage}) => {
+      if (fullPage) {
+        viewer.navigator.element.parentElement.style.setProperty("position", "fixed")
+        viewer.navigator.element.parentElement.style.setProperty("bottom", "20px")
+        viewer.navigator.element.parentElement.style.setProperty("right", "20px")
+        viewer.navigator.element.parentElement.style.setProperty("z-index", "100")
+      } else {
+        viewer.navigator.element.parentElement.style.removeProperty("position")
+        viewer.navigator.element.parentElement.style.removeProperty("bottom")
+        viewer.navigator.element.parentElement.style.removeProperty("right")
+        viewer.navigator.element.parentElement.style.removeProperty("z-index")
+      }
+      
     },
     updateViewport: (e) => {
       // console.log(e)
@@ -164,8 +179,13 @@ const loadHashParams = async () => {
     })
   
   }
+  let imageMappingsChanged = false
+  if (hashParams["gcsBaseFolder"] && previousHashParams?.gcsBaseFolder !== hashParams["gcsBaseFolder"]) {
+    await loadImageMappings()
+    imageMappingsChanged = true
+  }
   
-  if (hashParams["fileName"] && previousHashParams?.fileName !== hashParams["fileName"]) {
+  if (imageMappingsChanged || (hashParams["fileName"] && previousHashParams?.fileName !== hashParams["fileName"])) {
     sherlockWSI.loadImage(hashParams["fileName"])
   } else if ((hashParams.wsiCenterX && hashParams.wsiCenterY && hashParams.wsiZoom) || hashParams.classPrediction) {
     sherlockWSI.handleViewerOptionsInHash(hashParams.wsiCenterX, hashParams.wsiCenterY, hashParams.wsiZoom)
@@ -299,7 +319,12 @@ sherlockWSI.createTileSource = async (url) => {
   return tiffTileSources[0]
 }
 
-sherlockWSI.loadImageFromSelector = () => document.getElementById("imageSelect").value.length > 0 ? sherlockWSI.modifyHashString({'fileName': document.getElementById("imageSelect").value }) : {}
+sherlockWSI.loadImageFromSelector = () => {
+  if (document.getElementById("imageSelect").value.length > 0) {
+    sherlockWSI.modifyHashString({'fileName': document.getElementById("imageSelect").value })
+    sherlockWSI.removeViewerOptionsFromHash()
+  }
+}
 
 sherlockWSI.loadHeatmapFromSelector = () => {
   const heatmapImageSelector = document.getElementById("heatmapImageSelect")
@@ -345,13 +370,13 @@ sherlockWSI.loadImage = async (fileName=document.getElementById("imageSelect").v
     sherlockWSI.viewer = OpenSeadragon(sherlockWSI.default.osdViewerOptions)
     sherlockWSI.viewer.addHandler('update-viewport', sherlockWSI.handlers.viewer.updateViewport)
     sherlockWSI.viewer.addHandler('animation-finish', sherlockWSI.handlers.viewer.animationFinish)
+    sherlockWSI.viewer.addHandler('full-page', sherlockWSI.handlers.viewer.fullPage)
     sherlockWSI.viewer.addHandler('tile-load-failed', sherlockWSI.handlers.viewer.tileLoadFailed)
   }
   else {
     sherlockWSI.viewer.close()
     sherlockWSI.viewer.navigator.destroy()
     sherlockWSI.viewer.navigator = null
-    sherlockWSI.removeViewerOptionsFromHash()
   }
 
   sherlockWSI.viewer.addOnceHandler('open', sherlockWSI.handlers.viewer.open)
@@ -360,6 +385,7 @@ sherlockWSI.loadImage = async (fileName=document.getElementById("imageSelect").v
 
 sherlockWSI.handleViewerOptionsInHash = (centerX=hashParams?.wsiCenterX, centerY=hashParams?.wsiCenterY, zoomLevel=hashParams?.wsiZoom, classPrediction=hashParams?.classPrediction) => {
   let viewportChangedFlag = false
+  
   if (sherlockWSI.viewer?.viewport) {
     const currentZoom = sherlockWSI.viewer.viewport.getZoom()
     zoomLevel = parseFloat(zoomLevel)
@@ -526,20 +552,34 @@ const imageMapUploadHandler = () => {
   
   const reader = new FileReader()
   reader.onload = (e) => {
-    sherlockWSI.imageMappings = JSON.parse(e.target.result)
-    localStorage.imageMappings = JSON.stringify(sherlockWSI.imageMappings)
-    loadApp()
+    const localImageMap = JSON.parse(e.target.result)
+    if (localImageMap?.gcsBaseFolder) {
+      sherlockWSI.modifyHashString({
+        "gcsBaseFolder": localImageMap.gcsBaseFolder
+      })
+    }
   }
   reader.readAsText(imageMapFile)
+}
+
+const loadImageMappings = async () => {
+  try {
+    if (IS_PRIVATE) {
+      if (hashParams["gcsBaseFolder"]) {
+        sherlockWSI.pathToData = hashParams["gcsBaseFolder"]
+      }
+    }
+    sherlockWSI.imageMappings = await (await fetch(`${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${sherlockWSI.imageMappingsFilename}`)).json()
+    loadApp()
+  
+  } catch (e) {
+    console.log("Image Mappings not found!")
+  }
 }
 
 const loadApp = async () => {
   document.getElementById("imageMapUploadParent").style.display = "none"
   document.getElementById("imageSelectorParent").style.display = "inline-block"
-  
-  sherlockWSI.pathToData = IS_PRIVATE ? sherlockWSI.imageMappings.gcsBaseFolder : ""
-  
-  loadHashParams()
   
   await sherlockWSI.populateImageSelector()
   if (!hashParams["fileName"]) {
@@ -548,18 +588,4 @@ const loadApp = async () => {
 }
 
 window.onhashchange = loadHashParams
-
-window.onload = async () => {
-  try {
-    if (IS_PRIVATE) {
-      const localImageMappings = JSON.parse(localStorage.imageMappings)
-      sherlockWSI.pathToData = localImageMappings.gcsBaseFolder
-    }
-    
-    sherlockWSI.imageMappings = await (await fetch(`${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${sherlockWSI.imageMappingsFilename}`)).json()
-    loadApp()
-  
-  } catch (e) {
-    console.log("Image Mappings not found!")
-  }
-}
+window.onload = loadHashParams
