@@ -23,8 +23,8 @@ sherlockWSI.default = {
     minZoomImageRatio: 1,
     prefixUrl: "https://episphere.github.io/svs/openseadragon/images/",
     showNavigator: false,
-    // navigatorId: "osdNavigator",
-    // navigatorDisplayRegionColor: "#ff4343",
+    navigatorId: "osdNavigator",
+    navigatorDisplayRegionColor: "#ff4343",
     // // imageLoaderLimit: 15,
     // immediateRender: false,
     // timeout: 180*1000,
@@ -148,11 +148,22 @@ sherlockWSI.handlers = {
   tiledImage: {
     fullyLoadedChange: async (_) => {
       if (sherlockWSI.viewer.navigator.world.getItemCount() > 0) {
-        sherlockWSI.viewer.navigator.world.removeItem(sherlockWSI.viewer.navigator.world.getItemAt(0))
+        sherlockWSI.viewer.navigator.close()
       }
       sherlockWSI.viewer.navigator.setVisible(true)
       sherlockWSI.progressBar(false)
-      sherlockWSI.handleViewerOptionsInHash()
+      sherlockWSI.heatmapImageChangeHandler()
+      const { Imagebox3 } = await import("https://episphere.github.io/imagebox3/imagebox3.mjs")
+      const imagebox3Instance = new Imagebox3(sherlockWSI.constructURLToWSI())
+      await imagebox3Instance.init()
+      const { pixelsPerMicron } = await imagebox3Instance.getInfo()
+      if (pixelsPerMicron) {
+        sherlockWSI.viewer.scalebar({
+          type: OpenSeadragon.ScalebarType.MICROSCOPY,
+          pixelsPerMeter: pixelsPerMicron * 10**6,
+          location: OpenSeadragon.ScalebarLocation.BOTTOM_LEFT
+        })
+      }
     }
   }
 
@@ -171,12 +182,12 @@ const loadHashParams = async () => {
 
   if (window.location.hash.includes("=")) {
     
-    window.location.hash.slice(1).split('&').forEach( (param) => {
+    for (const param of window.location.hash.slice(1).split('&')) {
       let [key, value] = param.split('=')
       value = value.replace(/['"]+/g, "") // for when the hash parameter contains quotes.
       value = decodeURIComponent(value)
       hashParams[key] = value
-    })
+    }
   
   }
   let imageMappingsChanged = false
@@ -185,10 +196,10 @@ const loadHashParams = async () => {
     imageMappingsChanged = true
   }
   
-  if (imageMappingsChanged || (hashParams["fileName"] && previousHashParams?.fileName !== hashParams["fileName"])) {
+  if (hashParams["fileName"] && (imageMappingsChanged || previousHashParams?.fileName !== hashParams["fileName"])) {
     sherlockWSI.loadImage(hashParams["fileName"])
   } else if ((hashParams.wsiCenterX && hashParams.wsiCenterY && hashParams.wsiZoom) || hashParams.classPrediction) {
-    sherlockWSI.handleViewerOptionsInHash(hashParams.wsiCenterX, hashParams.wsiCenterY, hashParams.wsiZoom)
+    sherlockWSI.handleViewerOptionsInHash(hashParams.wsiCenterX, hashParams.wsiCenterY, hashParams.wsiZoom, hashParams.classPrediction)
   }
 
   window.localStorage.hashParams = JSON.stringify(hashParams)
@@ -198,7 +209,7 @@ sherlockWSI.modifyHashString = (hashObj, removeFromHistory=true) => {
   // hashObj contains hash keys with corresponding values to update..
   let hash = decodeURIComponent(window.location.hash)
   
-  Object.entries(hashObj).forEach(([key, val]) => {
+  for (const [key,val] of Object.entries(hashObj)) {
     if (val && val !== hashParams[key]) {
     
       if (hashParams[key]) {
@@ -227,7 +238,7 @@ sherlockWSI.modifyHashString = (hashObj, removeFromHistory=true) => {
         hash = hash.replace(param, "")
       }
     }
-  })
+  }
   
   window.location.hash = hash
 
@@ -321,8 +332,13 @@ sherlockWSI.createTileSource = async (url) => {
 
 sherlockWSI.loadImageFromSelector = () => {
   if (document.getElementById("imageSelect").value.length > 0) {
-    sherlockWSI.modifyHashString({'fileName': document.getElementById("imageSelect").value })
-    sherlockWSI.removeViewerOptionsFromHash()
+    sherlockWSI.modifyHashString({
+      'fileName': document.getElementById("imageSelect").value,
+      'wsiCenterX': undefined,
+      'wsiCenterY': undefined,
+      'wsiZoom': undefined,
+      'classPrediction': undefined,
+    })
   }
 }
 
@@ -335,6 +351,16 @@ sherlockWSI.loadHeatmapFromSelector = () => {
   } else {
     return {}
   }
+}
+
+sherlockWSI.heatmapOpacityChangeHandler = () => {
+  if (sherlockWSI.viewer.world.getItemCount() > 1) {
+    sherlockWSI.viewer.world.getItemAt(1).setOpacity(document.getElementById('heatmapOpacitySlider').value)
+  }
+}
+
+sherlockWSI.constructURLToWSI = (fileName=document.getElementById("imageSelect").value) => {
+  return `${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${fileName}`
 }
 
 sherlockWSI.loadImage = async (fileName=document.getElementById("imageSelect").value) => {
@@ -359,7 +385,7 @@ sherlockWSI.loadImage = async (fileName=document.getElementById("imageSelect").v
     sherlockWSI.progressBar(true)
   }
 
-  const url = `${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${fileName}`
+  const url = sherlockWSI.constructURLToWSI(fileName)
   const tileSource = await sherlockWSI.createTileSource(url)
   if (!tileSource) {
     //alert("Error retrieving image information!")
@@ -401,17 +427,24 @@ sherlockWSI.handleViewerOptionsInHash = (centerX=hashParams?.wsiCenterX, centerY
       sherlockWSI.viewer.viewport.panTo(new OpenSeadragon.Point(centerX, centerY))
       viewportChangedFlag = true
     }
-
+    
     if (classPrediction) {
       const predictedClass = sherlockWSI.classMappings.find(predClass => predClass.name === classPrediction)
       const predictionImage = sherlockWSI.imageMappings.images.find(img => img.fileName === hashParams.fileName)?.predictionImages.find(predImg => predImg.classId === predictedClass.id)
       const heatmapURL = `${sherlockWSI.imageStoreBasePath}/${sherlockWSI.pathToData}/${predictedClass.name}/${predictionImage.image}`
       if (sherlockWSI.viewer.navigator.world.getItemCount() === 0 || sherlockWSI.viewer.navigator.world.getItemAt(0).source.url !== heatmapURL) {
+        console.log(hashParams)
         sherlockWSI.viewer.navigator.close()
         sherlockWSI.viewer.navigator.addSimpleImage({
           'url': heatmapURL
         })
-        
+        if (sherlockWSI.viewer.world.getItemCount() > 1) {
+          sherlockWSI.viewer.world.removeItem(sherlockWSI.viewer.world.getItemAt(1))
+        }
+        sherlockWSI.viewer.addSimpleImage({
+          'url': heatmapURL,
+          'opacity': parseFloat(document.getElementById("heatmapOpacitySlider").value) || 0.25
+        })
         const heatmapImageSelector = document.getElementById("heatmapImageSelector")
         if (heatmapImageSelector && classPrediction !== heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className) {
           const valueToUpdateTo = heatmapImageSelector.querySelector(`option[data-class-name="${classPrediction}"`)?.value
@@ -424,7 +457,7 @@ sherlockWSI.handleViewerOptionsInHash = (centerX=hashParams?.wsiCenterX, centerY
           }
         }
       } else {
-        document.addEventListener("heatmapImageSelectorLoaded", sherlockWSI.handleViewerOptionsInHash, {once: true})
+        // document.addEventListener("heatmapImageSelectorLoaded", sherlockWSI.handleViewerOptionsInHash, {once: true})
       }
     }
   }
@@ -494,7 +527,7 @@ sherlockWSI.populateImageSelector = async () => {
   }
 }
 
-const heatmapImageChangeHandler = () => {
+sherlockWSI.heatmapImageChangeHandler = () => {
   const heatmapImageSelector = document.getElementById("heatmapImageSelector")
   const selectedClass = heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className
   sherlockWSI.modifyHashString({
@@ -517,7 +550,7 @@ sherlockWSI.populateHeatmapImageSelector = async (imageId, select=true, forceRef
 
   const heatmapImageSelector = document.createElement('select')
   heatmapImageSelector.id = "heatmapImageSelector"
-  heatmapImageSelector.onchange = heatmapImageChangeHandler
+  heatmapImageSelector.onchange = sherlockWSI.heatmapImageChangeHandler
 
   predictionImages.forEach(heatmapImg => {
     const predictionClass = sherlockWSI.classMappings.find(predClass => predClass.id === heatmapImg.classId)
@@ -531,19 +564,19 @@ sherlockWSI.populateHeatmapImageSelector = async (imageId, select=true, forceRef
   })
 
   selectorParent.appendChild(heatmapImageSelector)
-  if (select) {
-    if (hashParams.classPrediction) {
-      const valueToUpdateTo = heatmapImageSelector.querySelector(`option[data-class-name="${hashParams.classPrediction}"`)?.value
-      if (valueToUpdateTo) {
-        heatmapImageSelector.value = valueToUpdateTo
-      } else {
-        sherlockWSI.modifyHashString({
-          'classPrediction': heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className
-        })
-      }
-    }
-    heatmapImageSelector.dispatchEvent(new Event('change'))
-  }
+  // if (select) {
+  //   if (hashParams.classPrediction) {
+  //     const valueToUpdateTo = heatmapImageSelector.querySelector(`option[data-class-name="${hashParams.classPrediction}"`)?.value
+  //     if (valueToUpdateTo) {
+  //       heatmapImageSelector.value = valueToUpdateTo
+  //     } else {
+  //       sherlockWSI.modifyHashString({
+  //         'classPrediction': heatmapImageSelector.options[heatmapImageSelector.selectedIndex].dataset.className
+  //       })
+  //     }
+  //     heatmapImageSelector.dispatchEvent(new Event('change'))
+  //   }
+  // }
 }
 
 const imageMapUploadHandler = () => {
