@@ -521,6 +521,7 @@ sherlockWSI.populateHeatmapImageSelector = async (imageId, select = true, forceR
       img.src = heatmapURL
       img.alt = predictionClass.displayName
       img.className = 'w-full h-full object-cover'
+      img.loading = 'lazy'
 
       const label = document.createElement('div')
       label.className = 'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2 font-medium'
