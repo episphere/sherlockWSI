@@ -496,7 +496,7 @@ sherlockWSI.populateHeatmapImageSelector = async (imageId, select = true, forceR
 
   const { predictionImages } = sherlockWSI.imageMappings.images.find(img => img.id === imageId)
 
-  if (!predictionImages || predictionImages.length === 0) {
+  if (!predictionImages || predictionImages.length <= 1) {
     selectorContainer.classList.add('hidden')
     return
   }
@@ -600,6 +600,9 @@ const loadImageMappings = async () => {
 const loadApp = async () => {
   document.getElementById("imageMapUploadParent").style.display = "none"
   document.getElementById("imageSelectorParent").classList.remove("hidden")
+  const projectTitle = sherlockWSI.imageMappings.projectTitle ? sherlockWSI.imageMappings.projectTitle : "Sherlock WSI Viewer"
+  document.getElementById("projectTitle").innerText = projectTitle
+  document.title = projectTitle
 
   await sherlockWSI.populateImageSelector()
   if (!hashParams["fileName"]) {
