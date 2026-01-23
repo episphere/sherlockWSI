@@ -7,8 +7,8 @@
     <title>Sherlock WSI Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/openseadragon@latest/build/openseadragon/openseadragon.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/episphere/GeoTIFFTileSource-JPEG2k/GeoTIFFTileSource.js" type="module"
-        crossorigin="anonymous"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/gh/episphere/GeoTIFFTileSource-JPEG2k/GeoTIFFTileSource.js" type="module"
+        crossorigin="anonymous"></script> -->
     <script src="https://episphere.github.io/svs/boxv2/openseadragon-scalebar.js"></script>
     <script src="./index.js"></script>
 </head>
@@ -23,19 +23,18 @@
                         Sherlock WSI Viewer
                     </h1>
                     <div class="flex gap-3 mt-1 text-sm text-blue-600">
-                        <a href="https://github.com/monjoybme/Mutation_AI/" target="_blank"
+                        <a id="projectRepository" href="https://github.com/episphere/sherlockWSI" target="_blank"
                             class="hover:text-blue-800 hover:underline">
-                            Models & Analyses
+                            GitHub Repository
                         </a>
                         <span class="text-gray-400">|</span>
-                        <a href="https://github.com/monjoybme/Mutation_AI/issues" target="_blank"
+                        <a id="projectIssues" href="https://episphere.github.io/sherlockWSI/issues" target="_blank"
                             class="hover:text-blue-800 hover:underline">
                             Report Issues
                         </a>
                         <span class="text-gray-400">|</span>
-                        <a href="https://www.biorxiv.org/content/10.1101/2025.08.14.670178v2.full.pdf" target="_blank"
-                            class="hover:text-blue-800 hover:underline">
-                            Manuscript Preprint
+                        <a id="projectManuscript" disabled target="_blank" class="hover:text-blue-800 hover:underline">
+                            Manuscript
                         </a>
                     </div>
                 </div>
@@ -72,13 +71,39 @@
                     <div id="osdNavigatorParent" class="flex justify-center items-center">
                         <div id="osdNavigator" class="border-2 border-gray-300 rounded"></div>
                     </div>
-                    <span class="flex items-center gap-2 mt-3">
-                        <input type="checkbox" id="overlayHeatmapToggle" onchange="sherlockWSI.toggleHeatmapOverlay()"
-                            class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer">
-                        <label for="overlayHeatmapToggle" class="text-sm font-medium text-gray-700 cursor-pointer">
-                            Overlay Heatmap on Slide
-                        </label>
-                    </span>
+                    <div class="grid grid-flow-row items-center gap-2">
+                        <span class="flex items-center gap-2 mt-3 mb-2">
+
+                            <input type="checkbox" id="overlayHeatmapToggle"
+                                onchange="sherlockWSI.toggleHeatmapOverlay()"
+                                class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer">
+                            <label for="overlayHeatmapToggle"
+                                class="w-max text-sm font-medium text-gray-700 cursor-pointer">
+                                Overlay Heatmap on Slide
+                            </label>
+                        </span>
+                        <!-- Opacity Control -->
+                        <div id="heatmapOpacityControl" class="hidden py-2 border-t border-gray-200">
+                            <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 min-w-fit">
+                                    <!-- <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                        </path>
+                                    </svg> -->
+                                    <label for="heatmapOpacitySlider" class="text-sm font-medium text-gray-700">
+                                        Heatmap Opacity:
+                                    </label>
+                                </div>
+                                <input id="heatmapOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.0"
+                                    disabled onchange="sherlockWSI.heatmapOpacityChangeHandler()"
+                                    class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                <span id="opacityValue"
+                                    class="text-sm font-medium text-gray-700 min-w-[3rem] text-right">50%</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Heatmap Selector (shows third on mobile, second on desktop) -->
@@ -102,28 +127,6 @@
 
                     <!-- OpenSeadragon Viewer -->
                     <div id="openseadragon" class="w-full h-[70vh] lg:h-[80vh] border border-gray-300"></div>
-
-                    <!-- Opacity Control -->
-                    <div id="heatmapOpacityControl" class="hidden p-4 bg-gray-50 border-t border-gray-200">
-                        <div class="flex items-center gap-4">
-                            <div class="flex items-center gap-2 min-w-fit">
-                                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
-                                    </path>
-                                </svg>
-                                <label for="heatmapOpacitySlider" class="text-sm font-medium text-gray-700">
-                                    Heatmap Opacity:
-                                </label>
-                            </div>
-                            <input id="heatmapOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.0"
-                                disabled onchange="sherlockWSI.heatmapOpacityChangeHandler()"
-                                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
-                            <span id="opacityValue"
-                                class="text-sm font-medium text-gray-700 min-w-[3rem] text-right">50%</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -11,6 +11,10 @@ sherlockWSI.default = {
     visibilityRatio: 1,
     minZoomImageRatio: 1,
     prefixUrl: "https://episphere.github.io/svs/openseadragon/images/",
+    imageLoaderLimit: 5,
+    timeout: 1000 * 1000,
+    zoomPerScroll: 2,
+    immediate: true,
     showNavigator: false,
     navigatorId: "osdNavigator",
     navigatorDisplayRegionColor: "#ff4343",
@@ -252,8 +256,10 @@ sherlockWSI.progressBar = (show = true) => {
 }
 
 sherlockWSI.createTileSource = async (url) => {
-  let tiffTileSources = await OpenSeadragon.GeoTIFFTileSource.getAllTileSources(url, { logLatency: false, cache: false })
-  return tiffTileSources[0]
+  const { createTileSource: createOSDTileSource } = await import("https://prafulb.github.io/WSITileSource/wsiTileSource.js")
+  const numWorkers = 4
+  let tiffTileSources = await createOSDTileSource(url, numWorkers, { tileSize: 256 })
+  return tiffTileSources
 }
 
 sherlockWSI.loadImageFromSelector = () => {
@@ -285,11 +291,13 @@ sherlockWSI.toggleHeatmapOverlay = () => {
 
   if (toggle.checked) {
     // Show opacity control and set slider to 0.5
+    opacityControl.classList.remove('hidden')
     slider.removeAttribute('disabled')
     slider.value = 0.5
   } else {
     // Hide opacity control and set opacity to 0
-    slider.setAttribute('disabled', 'true')
+    opacityControl.classList.add('hidden')
+    slider.setAttribute('disabled', 'disabled')
     if (sherlockWSI.viewer.world.getItemCount() > 1) {
       slider.value = 0
     }
@@ -409,9 +417,6 @@ sherlockWSI.handleViewerOptionsInHash = (centerX = hashParams?.wsiCenterX, cente
               }
             })
 
-            // Show opacity control
-            document.getElementById('heatmapOpacityControl').classList.remove('hidden')
-
             // Ensure hash has both parameters
             if (!hashParams.classPrediction || !hashParams.heatmapClassId) {
               sherlockWSI.modifyHashString({
@@ -498,10 +503,9 @@ sherlockWSI.populateHeatmapImageSelector = async (imageId, select = true, forceR
 
   if (!predictionImages || predictionImages.length <= 1) {
     selectorContainer.classList.add('hidden')
-    return
+  } else {
+    selectorContainer.classList.remove('hidden')
   }
-
-  selectorContainer.classList.remove('hidden')
 
   let firstHeatmap = null
   let shouldAutoSelectFirst = !hashParams.heatmapClassId && !hashParams.classPrediction
@@ -600,9 +604,24 @@ const loadImageMappings = async () => {
 const loadApp = async () => {
   document.getElementById("imageMapUploadParent").style.display = "none"
   document.getElementById("imageSelectorParent").classList.remove("hidden")
-  const projectTitle = sherlockWSI.imageMappings.projectTitle ? sherlockWSI.imageMappings.projectTitle : "Sherlock WSI Viewer"
+
+  const {
+    projectTitle = "Sherlock WSI Viewer",
+    projectRepository = "https://github.com/episphere/sherlockWSI",
+    projectIssues = "https://github.com/episphere/sherlockWSI/issues",
+    projectManuscript
+  } = sherlockWSI.imageMappings
+
   document.getElementById("projectTitle").innerText = projectTitle
   document.title = projectTitle
+
+  document.getElementById("projectRepository").href = projectRepository
+  document.getElementById("projectIssues").href = projectIssues
+
+  if (projectManuscript) {
+    document.getElementById("projectManuscript").removeAttribute("disabled")
+    document.getElementById("projectManuscript").href = projectManuscript
+  }
 
   await sherlockWSI.populateImageSelector()
   if (!hashParams["fileName"]) {
